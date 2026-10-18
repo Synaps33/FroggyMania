@@ -1,0 +1,116 @@
+#include "libretro_shared.h"
+#include "sonic_hackerlog.h"
+#include "RSDK/Scene/Scene.hpp"
+#include "RSDK/Input/Input.hpp"
+
+extern "C" void xlog(const char *fmt, ...);
+
+namespace RSDK
+{
+
+static RenderDevice::DisplayInfo s_libretro_display = { 0, 320, 240, 60 };
+
+bool RenderDevice::Init()
+{
+    xlog("[RENDER] RenderDevice::Init enter\n");
+    displayCount = 1;
+    displayInfo.displays = &s_libretro_display;
+    videoSettings.pixWidth = 384;
+    videoSettings.pixHeight = 240;
+
+    for (int32 s = 0; s < SCREEN_COUNT; ++s) {
+        memset(&screens[s].frameBuffer, 0, sizeof(screens[s].frameBuffer));
+        SetScreenSize(s, 384, 240);
+    }
+
+    int32 size = videoSettings.pixWidth >= SCREEN_YSIZE ? videoSettings.pixWidth : SCREEN_YSIZE;
+    scanlines = (ScanlineInfo *)malloc(size * sizeof(ScanlineInfo));
+    if (scanlines)
+        memset(scanlines, 0, size * sizeof(ScanlineInfo));
+
+    videoSettings.screenCount = 1;
+    currentScreen = &screens[0];
+    videoSettings.windowState = WINDOWSTATE_ACTIVE;
+    videoSettings.dimMax      = 1.0;
+    videoSettings.dimPercent  = 1.0;
+    videoSettings.refreshRate = 60;
+    engine.inFocus            = 1;
+
+    xlog("[RENDER] RenderDevice::Init: calling AudioDevice::Init...\n");
+    if (!AudioDevice::Init()) {
+        xlog("[RENDER] AudioDevice::Init failed!\n");
+        return false;
+    }
+
+    /* The engine only registers input devices from a platform render device's
+     * Init -- SDL2, Vulkan, DX9/11, GLFW and EGL each call this, and this file
+     * did not, so inputDeviceList stayed empty and RSDK::ProcessInput never saw
+     * a single button press: the game was completely unresponsive. */
+    xlog("[RENDER] RenderDevice::Init: calling InitInputDevices...\n");
+    InitInputDevices();
+
+    RenderDevice::isRunning = true;
+    xlog("[RENDER] RenderDevice::Init success, isRunning=true\n");
+    return true;
+}
+
+void RenderDevice::CopyFrameBuffer()
+{
+}
+
+void RenderDevice::FlipScreen()
+{
+    if (screens[0].frameBuffer) {
+        /* FroggyKVM hands the screen to the game on its first real frame
+         * (gb300_video_flush). Until then the console keeps owning it, so the
+         * engine's output is not pushed while the boot log is visible. */
+        if (sonic_hackerlog_is_boot_active())
+            return;
+
+        if (sonic_hackerlog_is_overlay_active()) {
+            const char *scn_name = "PRESENTATION";
+            const char *cat_name = "MAIN";
+            if (sceneInfo.listCategory && sceneInfo.activeCategory < sceneInfo.categoryCount) {
+                cat_name = sceneInfo.listCategory[sceneInfo.activeCategory].name;
+            }
+            if (sceneInfo.listData) {
+                scn_name = sceneInfo.listData[sceneInfo.listPos].name;
+            }
+            sonic_hackerlog_render_overlay(screens[0].frameBuffer, scn_name, cat_name, sceneInfo.classCount, 60);
+        }
+
+        static int flip_cnt = 0;
+        if (flip_cnt < 4) {
+            xlog("[RENDER] FlipScreen %d: fb=%p classCount=%d state=%d\n",
+                 flip_cnt, (void *)screens[0].frameBuffer, sceneInfo.classCount, sceneInfo.state);
+            flip_cnt++;
+        }
+
+        sonic_present_frame(screens[0].frameBuffer, screens[0].size.x, screens[0].size.y, screens[0].pitch * sizeof(uint16));
+    }
+}
+
+void RenderDevice::Release(bool32 isRefresh)
+{
+    AudioDevice::Release();
+    if (scanlines) {
+        free(scanlines);
+        scanlines = NULL;
+    }
+    RenderDevice::isRunning = false;
+}
+
+void RenderDevice::GetWindowSize(int32 *width, int32 *height)
+{
+    if (width) *width = 320;
+    if (height) *height = 240;
+}
+
+bool RenderDevice::ProcessEvents()
+{
+    if (s_input_poll_cb)
+        s_input_poll_cb();
+    return RenderDevice::isRunning;
+}
+
+} // namespace RSDK

@@ -1,0 +1,17 @@
+*.a
+*.o
+*.map
+cores/*
+sdcard
+
+bisrv.asd
+*.bin
+*.elf
+
+core_87000000
+crc
+*~*
+
+# Root symlinks for core backwards compatibility
+/*.h
+/dist/
