@@ -70,11 +70,12 @@ Known rough edges:
 The port is mostly the upstream decompilation and the upstream frontend. The
 parts that needed real work:
 
-* **Rendering pipeline.** The engine renders at the original 424x240 and the
-  core downscales to the panel's 320x240 with a lookup-table scaler. The
-  console's OSD region cannot exceed 320 pixels wide (fixed-size buffer in the
-  stock firmware), which is why the core presents a pre-scaled 320x240 frame
-  instead of handing 424 pixels to the frontend.
+* **Rendering pipeline.** The engine renders at 384x240 (Sonic Mania's original
+  424-wide view is cropped to fit the budget) and the core downscales to the
+  panel's 320x240 with a lookup-table scaler. The console's OSD region cannot
+  exceed 320 pixels wide (fixed-size buffer in the stock firmware), which is
+  why the core presents a pre-scaled 320x240 frame instead of handing 384
+  pixels to the frontend.
 * **Broken alpha and fill.** The stock RGB565 blend macro overflowed on
   rounding, red-shifting sprites; it was replaced with a bit-exact branchless
   blend, and the screen-clear path was rewritten to use the full 6-bit green
@@ -85,9 +86,9 @@ parts that needed real work:
   through the linked ELF map was most of the debugging effort.
 * **Soft-float performance.** The audio mixer and the sprite blitter (the two
   hottest loops) were rewritten/relaid out for the MIPS build (`-O3`,
-  branchless clamps, hot-loop unrolling), and a frame-skip option
-  (`Video:frameSkip`) keeps input latency at 60 Hz when the renderer falls
-  behind.
+  branchless clamps, hot-loop unrolling), and the engine's frame-skip logic
+  (rendering skips a frame while physics/input stay at 60 Hz) keeps the game
+  responsive when the renderer falls behind.
 * **Struct-layout trap.** `RSDKScreenInfo` is declared twice (engine and game
   headers). If they disagree by even one padding word the framebuffer pointer
   shifts and the picture breaks; both copies now use the same padded stride.

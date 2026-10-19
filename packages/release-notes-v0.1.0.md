@@ -9,8 +9,8 @@ The game boots, plays and is controllable entirely from the gamepad.
 * Menu, Mania Mode save slot screen and gameplay (tested through Green Hill
   Zone and Angel Island Zone)
 * Gamepad input, HUD, save data
-* Rendering: the engine runs at the original's 424x240 and is downscaled in the
-  core to the console's native 320x240 panel
+* Rendering: the engine renders at 384x240 and is downscaled in the core to
+  the console's native 320x240 panel
 
 ### Install
 
