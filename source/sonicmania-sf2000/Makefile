@@ -58,6 +58,7 @@ C_SRCS := SonicMania/Game.c \
 
 # C++ Sources
 CXX_SRCS := src/libretro.cpp \
+            src/video_treefrogui.cpp \
             src/sonic_hackerlog.cpp \
             dependencies/RSDKv5/RSDKv5/RSDK/Core/RetroEngine.cpp \
             dependencies/RSDKv5/RSDKv5/RSDK/Core/Math.cpp \

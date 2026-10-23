@@ -10,16 +10,32 @@
  */
 #include <stdio.h>
 #include <stdarg.h>
+#include "libretro.h"
 
 #if !defined(SF2000) && !defined(GB300) && !defined(GB300V2)
+
+static retro_log_printf_t frontend_log;
+
+void xlog_set_environment(retro_environment_t cb)
+{
+    struct retro_log_callback logging = { 0 };
+    frontend_log = cb && cb(RETRO_ENVIRONMENT_GET_LOG_INTERFACE, &logging) ? logging.log : NULL;
+}
 
 void xlog(const char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
-    vfprintf(stdout, fmt, ap);
+    if (frontend_log) {
+        char message[2048];
+        vsnprintf(message, sizeof(message), fmt, ap);
+        frontend_log(RETRO_LOG_INFO, "[FROGGYMANIA] %s", message);
+    }
+    else {
+        vfprintf(stdout, fmt, ap);
+        fflush(stdout);
+    }
     va_end(ap);
-    fflush(stdout);
 }
 
 #endif

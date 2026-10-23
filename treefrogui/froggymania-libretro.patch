@@ -1,0 +1,18 @@
+diff --git a/src/libretro.cpp b/src/libretro.cpp
+index 9ef7eba..0000000 100644
+--- a/src/libretro.cpp
++++ b/src/libretro.cpp
+@@ -72,9 +72,9 @@ void retro_get_system_av_info(struct retro_system_av_info *info)
+     memset(info, 0, sizeof(*info));
+     info->timing.fps            = 60.0;
+     info->timing.sample_rate    = 44100.0;
+-    info->geometry.base_width   = 640;
+-    info->geometry.base_height  = 480;
+-    info->geometry.max_width    = 640;
+-    info->geometry.max_height   = 480;
++    info->geometry.base_width   = 320;
++    info->geometry.base_height  = 240;
++    info->geometry.max_width    = 320;
++    info->geometry.max_height   = 240;
+     info->geometry.aspect_ratio = 4.0f / 3.0f;
+ }

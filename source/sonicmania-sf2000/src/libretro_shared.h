@@ -14,13 +14,13 @@ extern retro_input_poll_t s_input_poll_cb;
 extern retro_input_state_t s_input_state_cb;
 extern uint16_t s_input_state;
 
-/* The engine renders 320x240 RGB565 and that is exactly what the frontend is
- * fed. Full-panel scaling is the OSD's job (sf2000_force_fullscreen in
- * video_sf2000.c); doing it here instead quadruples the bytes per frame and
- * previously cost ~10 fps. */
-#define SONIC_SRC_W 384
+void xlog_set_environment(retro_environment_t cb);
+
+/* RSDK renders at 424x240; TreeFrogUI scales output to the 640x480 panel. */
+#define SONIC_SRC_W 424
 #define SONIC_SRC_H 240
 void sonic_present_frame(uint16_t *src, unsigned width, unsigned height, size_t pitch);
+void video_treefrogui_present(const void *src, unsigned width, unsigned height, size_t pitch);
 
 #ifdef __cplusplus
 }

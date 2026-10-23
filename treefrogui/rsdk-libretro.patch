@@ -1,0 +1,312 @@
+diff --git a/RSDKv5/RSDK/Audio/Audio.cpp b/RSDKv5/RSDK/Audio/Audio.cpp
+index ff84a0b..e62a665 100644
+--- a/RSDKv5/RSDK/Audio/Audio.cpp
++++ b/RSDKv5/RSDK/Audio/Audio.cpp
+@@ -38,6 +38,8 @@ float linearInterpolationLookup[LINEAR_INTERPOLATION_LOOKUP_LENGTH];
+ #include "MiniAudio/MiniAudioDevice.cpp"
+ #elif RETRO_AUDIODEVICE_OBOE
+ #include "Oboe/OboeAudioDevice.cpp"
++#elif RETRO_AUDIODEVICE_LIBRETRO
++#include "LibretroAudioDevice.cpp"
+ #endif
+ 
+ uint8 AudioDeviceBase::initializedAudioChannels = false;
+diff --git a/RSDKv5/RSDK/Audio/Audio.hpp b/RSDKv5/RSDK/Audio/Audio.hpp
+index d0df86b..664396a 100644
+--- a/RSDKv5/RSDK/Audio/Audio.hpp
++++ b/RSDKv5/RSDK/Audio/Audio.hpp
+@@ -80,6 +80,8 @@ void LoadSfx(char *filePath, uint8 plays, uint8 scope);
+ #include "SDL2/SDL2AudioDevice.hpp"
+ #elif RETRO_AUDIODEVICE_OBOE
+ #include "Oboe/OboeAudioDevice.hpp"
++#elif RETRO_AUDIODEVICE_LIBRETRO
++#include "LibretroAudioDevice.hpp"
+ #endif
+ 
+ namespace RSDK
+diff --git a/RSDKv5/RSDK/Core/RetroEngine.cpp b/RSDKv5/RSDK/Core/RetroEngine.cpp
+index 688b10b..e5f9149 100644
+--- a/RSDKv5/RSDK/Core/RetroEngine.cpp
++++ b/RSDKv5/RSDK/Core/RetroEngine.cpp
+@@ -22,6 +22,8 @@ void (*RSDK::globalVarsInitCB)(void *globals) = NULL;
+ 
+ RetroEngine RSDK::engine = RetroEngine();
+ 
++static bool s_libretroEngineReady = false;
++
+ int32 RSDK::RunRetroEngine(int32 argc, char *argv[])
+ {
+     ParseArguments(argc, argv);
+@@ -342,6 +344,106 @@ int32 RSDK::RunRetroEngine(int32 argc, char *argv[])
+     return 0;
+ }
+ 
++
++bool32 RSDK::InitRetroEngine(int32 argc, char *argv[])
++{
++    if (s_libretroEngineReady)
++        DeinitRetroEngine();
++
++    ParseArguments(argc, argv);
++    RenderDevice::isRunning = false;
++    if (!InitStorage()) {
++        ReleaseStorage();
++        return false;
++    }
++
++    SKU::InitUserCore();
++    if (!SKU::userCore) {
++        ReleaseStorage();
++        return false;
++    }
++    LoadSettingsINI();
++    SKU::curSKU.platform = SKU::userCore->GetUserPlatform();
++    if (!SKU::userCore->CheckAPIInitialized()) {
++        SKU::ReleaseUserCore();
++        ReleaseStorage();
++        return false;
++    }
++
++#if RETRO_REV0U
++    DetectEngineVersion();
++#endif
++    InitEngine();
++    if (!RenderDevice::Init()) {
++        RenderDevice::Release(false);
++        SKU::ReleaseUserCore();
++        ReleaseStorage();
++        Link::Close(gameLogicHandle);
++        gameLogicHandle = NULL;
++        return false;
++    }
++    RenderDevice::isRunning = true;
++    currentScreen = &screens[0];
++    videoSettings.screenCount = 1;
++    RenderDevice::InitFPSCap();
++    s_libretroEngineReady = true;
++    return true;
++}
++
++void RSDK::StepRetroEngine()
++{
++    if (!s_libretroEngineReady || !RenderDevice::isRunning)
++        return;
++    AudioDevice::FrameInit();
++#if RETRO_REV02
++    SKU::userCore->FrameInit();
++    if (SKU::userCore->CheckEnginePause())
++        return;
++#endif
++    if (!engine.hardPause) {
++        foreachStackPtr = foreachStackList;
++#if !RETRO_USE_ORIGINAL_CODE
++        debugHitboxCount = 0;
++#endif
++        ProcessInputDevices();
++        if (engine.devMenu)
++            ProcessDebugCommands();
++#if RETRO_REV0U
++        switch (engine.version) {
++            default:
++            case 5: ProcessEngine(); break;
++            case 4: Legacy::v4::ProcessEngine(); break;
++            case 3: Legacy::v3::ProcessEngine(); break;
++        }
++#else
++        ProcessEngine();
++#endif
++        if (videoSettings.windowState == WINDOWSTATE_ACTIVE)
++            RenderDevice::CopyFrameBuffer();
++    }
++    if (videoSettings.windowState == WINDOWSTATE_ACTIVE) {
++        RenderDevice::ProcessDimming();
++        RenderDevice::FlipScreen();
++    }
++}
++
++void RSDK::DeinitRetroEngine()
++{
++    if (!s_libretroEngineReady)
++        return;
++    s_libretroEngineReady = false;
++    ReleaseInputDevices();
++    RenderDevice::Release(false);
++    SaveSettingsINI(false);
++    SKU::ReleaseUserCore();
++    ReleaseStorage();
++#if RETRO_USE_MOD_LOADER
++    UnloadMods();
++#endif
++    Link::Close(gameLogicHandle);
++    gameLogicHandle = NULL;
++}
++
+ void RSDK::ProcessEngine()
+ {
+     switch (sceneInfo.state) {
+diff --git a/RSDKv5/RSDK/Core/RetroEngine.hpp b/RSDKv5/RSDK/Core/RetroEngine.hpp
+index 6d6c352..e6598e0 100644
+--- a/RSDKv5/RSDK/Core/RetroEngine.hpp
++++ b/RSDKv5/RSDK/Core/RetroEngine.hpp
+@@ -150,3 +150,7 @@
+ #ifndef SCREEN_XMAX
++#if defined(RSDK_USE_LIBRETRO)
++#define SCREEN_XMAX (424)
++#else
+ #define SCREEN_XMAX (1280)
++#endif
+ #endif
+@@ -167,6 +167,7 @@ enum GameRegions {
+ #define RETRO_RENDERDEVICE_GLFW (0)
+ #define RETRO_RENDERDEVICE_VK   (0)
+ #define RETRO_RENDERDEVICE_EGL  (0)
++#define RETRO_RENDERDEVICE_LIBRETRO (0)
+ 
+ // ============================
+ // AUDIO DEVICE BACKENDS
+@@ -177,6 +178,7 @@ enum GameRegions {
+ #define RETRO_AUDIODEVICE_SDL2 (0)
+ #endif
+ #define RETRO_AUDIODEVICE_OBOE (0)
++#define RETRO_AUDIODEVICE_LIBRETRO (0)
+ #ifndef RETRO_AUDIODEVICE_PORT
+ #define RETRO_AUDIODEVICE_PORT (0)
+ #endif
+@@ -196,6 +198,7 @@ enum GameRegions {
+ #define RETRO_INPUTDEVICE_SDL2   (0)
+ #define RETRO_INPUTDEVICE_GLFW   (0)
+ #define RETRO_INPUTDEVICE_PDBOAT (0)
++#define RETRO_INPUTDEVICE_LIBRETRO (0)
+ 
+ // ============================
+ // USER CORE BACKENDS
+@@ -329,12 +332,23 @@ enum GameRegions {
+ 
+ #elif RETRO_PLATFORM == RETRO_LINUX
+ 
+-#if !RETRO_AUDIODEVICE_SDL2
++#if defined(RSDK_USE_LIBRETRO)
++#undef RETRO_RENDERDEVICE_LIBRETRO
++#define RETRO_RENDERDEVICE_LIBRETRO (1)
++#undef RETRO_AUDIODEVICE_LIBRETRO
++#define RETRO_AUDIODEVICE_LIBRETRO (1)
++#undef RETRO_INPUTDEVICE_LIBRETRO
++#define RETRO_INPUTDEVICE_LIBRETRO (1)
++#undef RETRO_INPUTDEVICE_KEYBOARD
++#define RETRO_INPUTDEVICE_KEYBOARD (0)
++#elif !RETRO_AUDIODEVICE_SDL2
+ #undef RETRO_AUDIODEVICE_MINI
+ #define RETRO_AUDIODEVICE_MINI (1)
+ #endif
+ 
+-#ifdef RSDK_USE_SDL2
++#if defined(RSDK_USE_LIBRETRO)
++// The port supplies its own render, audio and input devices.
++#elif defined(RSDK_USE_SDL2)
+ #undef RETRO_RENDERDEVICE_SDL2
+ #define RETRO_RENDERDEVICE_SDL2 (1)
+ #undef RETRO_INPUTDEVICE_SDL2
+@@ -662,6 +676,9 @@ extern LogicLinkHandle linkGameLogic;
+ // ============================
+ 
+ int32 RunRetroEngine(int32 argc, char *argv[]);
++bool32 InitRetroEngine(int32 argc, char *argv[]);
++void StepRetroEngine();
++void DeinitRetroEngine();
+ void ProcessEngine();
+ 
+ void ParseArguments(int32 argc, char *argv[]);
+diff --git a/RSDKv5/RSDK/Graphics/Drawing.cpp b/RSDKv5/RSDK/Graphics/Drawing.cpp
+index 4a1d932..7950743 100644
+--- a/RSDKv5/RSDK/Graphics/Drawing.cpp
++++ b/RSDKv5/RSDK/Graphics/Drawing.cpp
+@@ -141,6 +141,8 @@ const RenderVertex rsdkVertexBuffer[24] =
+ #include "Vulkan/VulkanRenderDevice.cpp"
+ #elif RETRO_RENDERDEVICE_EGL
+ #include "EGL/EGLRenderDevice.cpp"
++#elif RETRO_RENDERDEVICE_LIBRETRO
++#include "LibretroRenderDevice.cpp"
+ #endif
+ 
+ RenderDevice::WindowInfo RenderDevice::displayInfo;
+diff --git a/RSDKv5/RSDK/Graphics/Drawing.hpp b/RSDKv5/RSDK/Graphics/Drawing.hpp
+index c4ad7ec..0e238fa 100644
+--- a/RSDKv5/RSDK/Graphics/Drawing.hpp
++++ b/RSDKv5/RSDK/Graphics/Drawing.hpp
+@@ -76,3 +76,3 @@ struct ScreenInfo {
+     // uint16 *frameBuffer;
+-    uint16 frameBuffer[SCREEN_XMAX * SCREEN_YSIZE];
++    uint16 frameBuffer[((SCREEN_XMAX + 15) & ~15) * SCREEN_YSIZE];
+     Vector2 position;
+@@ -254,6 +254,8 @@ private:
+ #include "Vulkan/VulkanRenderDevice.hpp"
+ #elif RETRO_RENDERDEVICE_EGL
+ #include "EGL/EGLRenderDevice.hpp"
++#elif RETRO_RENDERDEVICE_LIBRETRO
++#include "LibretroRenderDevice.hpp"
+ #endif
+ 
+ extern DrawList drawGroups[DRAWGROUP_COUNT];
+diff --git a/RSDKv5/RSDK/Input/Input.cpp b/RSDKv5/RSDK/Input/Input.cpp
+index c619d40..f45c8b0 100644
+--- a/RSDKv5/RSDK/Input/Input.cpp
++++ b/RSDKv5/RSDK/Input/Input.cpp
+@@ -51,6 +51,9 @@ int32 RSDK::gamePadCount               = 0;
+ #if RETRO_INPUTDEVICE_PDBOAT
+ #include "Paddleboat/PDBInputDevice.cpp"
+ #endif
++#if RETRO_INPUTDEVICE_LIBRETRO
++#include "LibretroInputDevice.cpp"
++#endif
+ 
+ void RSDK::RemoveInputDevice(InputDevice *targetDevice)
+ {
+@@ -131,6 +134,9 @@ void RSDK::InitInputDevices()
+ #if RETRO_INPUTDEVICE_PDBOAT
+     SKU::InitPaddleboatInputAPI();
+ #endif
++#if RETRO_INPUTDEVICE_LIBRETRO
++    SKU::InitLibretroInputAPI();
++#endif
+ }
+ 
+ void RSDK::ReleaseInputDevices()
+diff --git a/RSDKv5/RSDK/Input/Input.hpp b/RSDKv5/RSDK/Input/Input.hpp
+index a49620d..5e72769 100644
+--- a/RSDKv5/RSDK/Input/Input.hpp
++++ b/RSDKv5/RSDK/Input/Input.hpp
+@@ -58,7 +58,10 @@ enum InputDeviceAPIs {
+     DEVICE_API_GLFW, // custom-made for OGL, won't be in ANY real RSDKv5 version ever, it's just cool
+ #endif
+ #if RETRO_INPUTDEVICE_PDBOAT
+-    DEVICE_API_PDBOAT // custom-made for android (paddleboat API)
++    DEVICE_API_PDBOAT, // custom-made for android (paddleboat API)
++#endif
++#if RETRO_INPUTDEVICE_LIBRETRO
++    DEVICE_API_LIBRETRO
+ #endif
+ };
+ 
+@@ -503,6 +506,9 @@ extern int32 gamePadCount;
+ #if RETRO_INPUTDEVICE_PDBOAT
+ #include "Paddleboat/PDBInputDevice.hpp"
+ #endif
++#if RETRO_INPUTDEVICE_LIBRETRO
++#include "LibretroInputDevice.hpp"
++#endif
+ 
+ // Initializes the input devices & the backend APIs powering em
+ void InitInputDevices();
+
+diff --git a/RSDKv5/RSDK/Graphics/Video.cpp b/RSDKv5/RSDK/Graphics/Video.cpp
+index 0000000..0000000 100644
+--- a/RSDKv5/RSDK/Graphics/Video.cpp
++++ b/RSDKv5/RSDK/Graphics/Video.cpp
+@@ -21,3 +21,7 @@ bool32 RSDK::LoadVideo(const char *filename, double startDelay, bool32 (*skipCallback)())
+ {
++#if RETRO_RENDERDEVICE_LIBRETRO
++    // shortcut: framebuffer backend has no YUV renderer, until it gains one.
++    return false;
++#endif
+     if (ENGINE_VERSION == 5 && sceneInfo.state == ENGINESTATE_VIDEOPLAYBACK)
+         return false;
