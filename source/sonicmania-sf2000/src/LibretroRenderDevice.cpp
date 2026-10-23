@@ -8,19 +8,24 @@ extern "C" void xlog(const char *fmt, ...);
 namespace RSDK
 {
 
-static RenderDevice::DisplayInfo s_libretro_display = { 0, 320, 240, 60 };
+static_assert(sizeof(ScreenInfo) == 432 * 240 * sizeof(uint16) + 48,
+              "ScreenInfo must match SonicMania/GameLink.h");
+
+static RenderDevice::DisplayInfo s_libretro_display = { 0, 424, 240, 60 };
 
 bool RenderDevice::Init()
 {
     xlog("[RENDER] RenderDevice::Init enter\n");
     displayCount = 1;
     displayInfo.displays = &s_libretro_display;
-    videoSettings.pixWidth = 384;
+    videoSettings.pixWidth = 424;
     videoSettings.pixHeight = 240;
 
     for (int32 s = 0; s < SCREEN_COUNT; ++s) {
         memset(&screens[s].frameBuffer, 0, sizeof(screens[s].frameBuffer));
-        SetScreenSize(s, 384, 240);
+        SetScreenSize(s, 424, 240);
+        xlog("[RENDER] screen=%d size=%dx%d pitch=%d fb=%p\n", s,
+             screens[s].size.x, screens[s].size.y, screens[s].pitch, (void *)screens[s].frameBuffer);
     }
 
     int32 size = videoSettings.pixWidth >= SCREEN_YSIZE ? videoSettings.pixWidth : SCREEN_YSIZE;
@@ -79,12 +84,18 @@ void RenderDevice::FlipScreen()
             sonic_hackerlog_render_overlay(screens[0].frameBuffer, scn_name, cat_name, sceneInfo.classCount, 60);
         }
 
-        static int flip_cnt = 0;
-        if (flip_cnt < 4) {
-            xlog("[RENDER] FlipScreen %d: fb=%p classCount=%d state=%d\n",
-                 flip_cnt, (void *)screens[0].frameBuffer, sceneInfo.classCount, sceneInfo.state);
-            flip_cnt++;
+        static unsigned flip_cnt = 0;
+        static int last_scene = -1;
+        if (flip_cnt < 4 || flip_cnt % 600 == 0 || last_scene != sceneInfo.listPos) {
+            const auto &screen = screens[0];
+            xlog("[RENDER] frame=%u scene=%d state=%d size=%dx%d center=%d,%d position=%d,%d pitch=%d clip=%d,%d-%d,%d screen_bytes=%zu\n",
+                 flip_cnt, sceneInfo.listPos, sceneInfo.state,
+                 screen.size.x, screen.size.y, screen.center.x, screen.center.y,
+                 screen.position.x, screen.position.y, screen.pitch,
+                 screen.clipBound_X1, screen.clipBound_Y1, screen.clipBound_X2, screen.clipBound_Y2, sizeof(ScreenInfo));
+            last_scene = sceneInfo.listPos;
         }
+        ++flip_cnt;
 
         sonic_present_frame(screens[0].frameBuffer, screens[0].size.x, screens[0].size.y, screens[0].pitch * sizeof(uint16));
     }
@@ -102,7 +113,7 @@ void RenderDevice::Release(bool32 isRefresh)
 
 void RenderDevice::GetWindowSize(int32 *width, int32 *height)
 {
-    if (width) *width = 320;
+    if (width) *width = 424;
     if (height) *height = 240;
 }
 

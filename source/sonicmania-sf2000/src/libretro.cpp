@@ -24,6 +24,9 @@ static int16_t s_audio_buffer[735 * 2];
 void retro_set_environment(retro_environment_t cb)
 {
     s_environ_cb = cb;
+#if !defined(SF2000) && !defined(GB300) && !defined(GB300V2)
+    xlog_set_environment(cb);
+#endif
     if (cb) {
         enum retro_pixel_format fmt = RETRO_PIXEL_FORMAT_RGB565;
         cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &fmt);
@@ -103,46 +106,9 @@ static bool s_engine_init_ok = false;
 
 extern "C" void xlog(const char *fmt, ...);
 
-/* The engine renders 320x240 RGB565 and that is what the frontend gets.
- *
- * No software upscale here on purpose. Measured with VIDEO_SF2000_DEBUG, a
- * 320x240 report produced a 320x240 OSD region inside the 640x480 menu space,
- * i.e. a quarter of the panel; filling the panel instead is the OSD's job and
- * is done there (sf2000_force_fullscreen), so the core pays nothing for it.
- * Upscaling here would quadruple the bytes handed to the panel per frame. */
-static uint16_t s_scale384_to_320[320];
-static bool s_scale_tab_init = false;
-static uint16_t s_downscale_fb[320 * 240];
-
 void sonic_present_frame(uint16_t *src, unsigned width, unsigned height, size_t pitch)
 {
-    if (!s_video_cb || !src)
-        return;
-
-    if (width == 384 && height == 240) {
-        if (!s_scale_tab_init) {
-            for (int x = 0; x < 320; ++x) {
-                s_scale384_to_320[x] = (uint16_t)((x * 384) / 320);
-            }
-            s_scale_tab_init = true;
-        }
-
-        size_t pitch_pixels = pitch / sizeof(uint16_t);
-        for (int y = 0; y < 240; ++y) {
-            const uint16_t *srcRow = src + y * pitch_pixels;
-            uint16_t *dstRow = s_downscale_fb + y * 320;
-            for (int x = 0; x < 320; x += 4) {
-                dstRow[x + 0] = srcRow[s_scale384_to_320[x + 0]];
-                dstRow[x + 1] = srcRow[s_scale384_to_320[x + 1]];
-                dstRow[x + 2] = srcRow[s_scale384_to_320[x + 2]];
-                dstRow[x + 3] = srcRow[s_scale384_to_320[x + 3]];
-            }
-        }
-        s_video_cb(s_downscale_fb, 320, 240, 320 * sizeof(uint16_t));
-    }
-    else {
-        s_video_cb(src, width, height, pitch);
-    }
+    video_treefrogui_present(src, width, height, pitch);
 }
 
 void retro_run(void)

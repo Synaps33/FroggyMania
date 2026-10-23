@@ -412,6 +412,8 @@ typedef struct {
     int32 waterDrawPos;
 } RSDKScreenInfo;
 
+typedef char RSDKScreenInfoLayoutCheck[sizeof(RSDKScreenInfo) == 432 * 240 * sizeof(uint16) + 48 ? 1 : -1];
+
 #if RETRO_REV02
 typedef struct {
     void *functionTable;

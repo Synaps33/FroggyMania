@@ -35,6 +35,11 @@ extern "C" {
 #define RETRO_REGION_PAL                  1
 
 #define RETRO_ENVIRONMENT_SET_PIXEL_FORMAT 10
+#define RETRO_ENVIRONMENT_GET_LOG_INTERFACE 27
+
+enum retro_log_level { RETRO_LOG_DEBUG, RETRO_LOG_INFO, RETRO_LOG_WARN, RETRO_LOG_ERROR };
+typedef void (*retro_log_printf_t)(enum retro_log_level level, const char *fmt, ...);
+struct retro_log_callback { retro_log_printf_t log; };
 
 enum retro_pixel_format
 {

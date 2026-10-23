@@ -56,7 +56,6 @@ BUILD_CORE="$BUILD_ROOT/sonicmania-sf2000"
 cp -a "$SOURCE_CORE" "$BUILD_CORE"
 mkdir -p "$BUILD_CORE/dependencies"
 ln -s "$BUILD_ROOT/RSDKv5" "$BUILD_CORE/dependencies/RSDKv5"
-git -C "$BUILD_CORE" apply "$TREEFROG_DIR/froggymania-libretro.patch"
 
 # RSDK includes backend translation units relative to its own directories.
 cp "$BUILD_CORE/src/LibretroRenderDevice.cpp" "$BUILD_CORE/src/LibretroRenderDevice.hpp" \

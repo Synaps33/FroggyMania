@@ -148,6 +148,14 @@ diff --git a/RSDKv5/RSDK/Core/RetroEngine.hpp b/RSDKv5/RSDK/Core/RetroEngine.hpp
 index 6d6c352..e6598e0 100644
 --- a/RSDKv5/RSDK/Core/RetroEngine.hpp
 +++ b/RSDKv5/RSDK/Core/RetroEngine.hpp
+@@ -150,3 +150,7 @@
+ #ifndef SCREEN_XMAX
++#if defined(RSDK_USE_LIBRETRO)
++#define SCREEN_XMAX (424)
++#else
+ #define SCREEN_XMAX (1280)
++#endif
+ #endif
 @@ -167,6 +167,7 @@ enum GameRegions {
  #define RETRO_RENDERDEVICE_GLFW (0)
  #define RETRO_RENDERDEVICE_VK   (0)
@@ -225,6 +233,11 @@ diff --git a/RSDKv5/RSDK/Graphics/Drawing.hpp b/RSDKv5/RSDK/Graphics/Drawing.hpp
 index c4ad7ec..0e238fa 100644
 --- a/RSDKv5/RSDK/Graphics/Drawing.hpp
 +++ b/RSDKv5/RSDK/Graphics/Drawing.hpp
+@@ -76,3 +76,3 @@ struct ScreenInfo {
+     // uint16 *frameBuffer;
+-    uint16 frameBuffer[SCREEN_XMAX * SCREEN_YSIZE];
++    uint16 frameBuffer[((SCREEN_XMAX + 15) & ~15) * SCREEN_YSIZE];
+     Vector2 position;
 @@ -254,6 +254,8 @@ private:
  #include "Vulkan/VulkanRenderDevice.hpp"
  #elif RETRO_RENDERDEVICE_EGL
