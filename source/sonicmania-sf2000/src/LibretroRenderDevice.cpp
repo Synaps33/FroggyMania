@@ -72,18 +72,6 @@ void RenderDevice::FlipScreen()
         if (sonic_hackerlog_is_boot_active())
             return;
 
-        if (sonic_hackerlog_is_overlay_active()) {
-            const char *scn_name = "PRESENTATION";
-            const char *cat_name = "MAIN";
-            if (sceneInfo.listCategory && sceneInfo.activeCategory < sceneInfo.categoryCount) {
-                cat_name = sceneInfo.listCategory[sceneInfo.activeCategory].name;
-            }
-            if (sceneInfo.listData) {
-                scn_name = sceneInfo.listData[sceneInfo.listPos].name;
-            }
-            sonic_hackerlog_render_overlay(screens[0].frameBuffer, scn_name, cat_name, sceneInfo.classCount, 60);
-        }
-
         static unsigned flip_cnt = 0;
         static int last_scene = -1;
         if (flip_cnt < 4 || flip_cnt % 600 == 0 || last_scene != sceneInfo.listPos) {

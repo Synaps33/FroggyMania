@@ -18,6 +18,20 @@ retro_input_poll_t s_input_poll_cb = NULL;
 retro_input_state_t s_input_state_cb = NULL;
 uint16_t s_input_state = 0;
 
+static const char frameskip_key[] = "froggymania_frameskip";
+
+static void read_frameskip_option(void)
+{
+    struct retro_variable option = { frameskip_key, NULL };
+    int mode = 0;
+    if (s_environ_cb && s_environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &option) && option.value) {
+        if (!strcmp(option.value, "Disabled")) mode = 1;
+        else if (!strcmp(option.value, "Skip 1 of 2")) mode = 2;
+        else if (!strcmp(option.value, "Skip 2 of 3")) mode = 3;
+    }
+    video_treefrogui_set_frameskip(mode);
+}
+
 static float s_mix_buffer[735 * 2];
 static int16_t s_audio_buffer[735 * 2];
 
@@ -30,6 +44,19 @@ void retro_set_environment(retro_environment_t cb)
     if (cb) {
         enum retro_pixel_format fmt = RETRO_PIXEL_FORMAT_RGB565;
         cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &fmt);
+        struct retro_audio_buffer_status_callback audio_status = {
+            video_treefrogui_audio_status
+        };
+        cb(RETRO_ENVIRONMENT_SET_AUDIO_BUFFER_STATUS_CALLBACK, &audio_status);
+        static const struct retro_variable options[] = {
+            { "froggymania_frameskip", "Frameskip; Auto (audio)|Disabled|Skip 1 of 2|Skip 2 of 3" },
+            { NULL, NULL }
+        };
+        cb(RETRO_ENVIRONMENT_SET_VARIABLES, (void *)options);
+        read_frameskip_option();
+    } else {
+        video_treefrogui_audio_status(false, 0, false);
+        video_treefrogui_set_frameskip(0);
     }
 }
 
@@ -47,6 +74,9 @@ void retro_init(void)
 
 void retro_deinit(void)
 {
+    video_treefrogui_audio_status(false, 0, false);
+    if (s_environ_cb)
+        s_environ_cb(RETRO_ENVIRONMENT_SET_AUDIO_BUFFER_STATUS_CALLBACK, NULL);
     RSDK::DeinitRetroEngine();
     RSDK::ReleaseCoreAPI();
 }
@@ -113,16 +143,16 @@ void sonic_present_frame(uint16_t *src, unsigned width, unsigned height, size_t 
 
 void retro_run(void)
 {
+    bool options_updated = false;
+    if (s_environ_cb &&
+        s_environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &options_updated) && options_updated)
+        read_frameskip_option();
+
     if (s_input_poll_cb)
         s_input_poll_cb();
 
     uint16_t just_pressed = s_input_state & ~s_prev_input;
     s_prev_input = s_input_state;
-
-    // SELECT button toggles telemetry overlay
-    if (just_pressed & (1 << RETRO_DEVICE_ID_JOYPAD_SELECT)) {
-        sonic_hackerlog_toggle();
-    }
 
     uint16_t *boot_fb = RSDK::screens[0].frameBuffer ? RSDK::screens[0].frameBuffer : s_hacker_boot_fb;
 
@@ -338,6 +368,7 @@ static void resolve_rsdk_paths(const char *raw_path)
 
 bool retro_load_game(const struct retro_game_info *game)
 {
+    video_treefrogui_audio_status(false, 0, false);
     xlog("[LIBRETRO] retro_load_game enter (game=%s)\n", game ? game->path : "NULL");
     resolve_rsdk_paths(game ? game->path : NULL);
     xlog("[LIBRETRO] resolve_rsdk_paths finished, returning true immediately for non-blocking start\n");
@@ -352,6 +383,7 @@ bool retro_load_game_special(unsigned game_type, const struct retro_game_info *i
 
 void retro_unload_game(void)
 {
+    video_treefrogui_audio_status(false, 0, false);
     RSDK::DeinitRetroEngine();
 }
 

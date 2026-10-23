@@ -35,7 +35,11 @@ extern "C" {
 #define RETRO_REGION_PAL                  1
 
 #define RETRO_ENVIRONMENT_SET_PIXEL_FORMAT 10
+#define RETRO_ENVIRONMENT_GET_VARIABLE 15
+#define RETRO_ENVIRONMENT_SET_VARIABLES 16
+#define RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE 17
 #define RETRO_ENVIRONMENT_GET_LOG_INTERFACE 27
+#define RETRO_ENVIRONMENT_SET_AUDIO_BUFFER_STATUS_CALLBACK 62
 
 enum retro_log_level { RETRO_LOG_DEBUG, RETRO_LOG_INFO, RETRO_LOG_WARN, RETRO_LOG_ERROR };
 typedef void (*retro_log_printf_t)(enum retro_log_level level, const char *fmt, ...);
@@ -88,6 +92,9 @@ struct retro_system_av_info
 };
 
 typedef bool (*retro_environment_t)(unsigned cmd, void *data);
+struct retro_variable { const char *key; const char *value; };
+typedef void (*retro_audio_buffer_status_callback_t)(bool active, unsigned occupancy, bool underrun_likely);
+struct retro_audio_buffer_status_callback { retro_audio_buffer_status_callback_t callback; };
 typedef void (*retro_video_refresh_t)(const void *data, unsigned width, unsigned height, size_t pitch);
 typedef void (*retro_audio_sample_t)(int16_t left, int16_t right);
 typedef size_t (*retro_audio_sample_batch_t)(const int16_t *data, size_t frames);

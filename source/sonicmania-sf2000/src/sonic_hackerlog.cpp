@@ -7,8 +7,7 @@
  *  Differences are limited to:
  *    - the log tags emitted for this title
  *    - the ROM/MAIN banner strings
- *    - the in-game telemetry overlay (froggykvm has no overlay, the
- *      equivalent of `gb300_hacker_stop()` + SELECT toggle lives there)
+ *    - the boot log remains visible until the engine takes over
  * ========================================================================= */
 
 #include "sonic_hackerlog.h"
@@ -191,7 +190,6 @@ static uint32_t s_boot_start_ms = 0;
 static int  s_boot_active = 0;
 static int  s_hacker_progress = 0;
 
-static int  s_overlay_active = 0;
 static char s_rom_path[128] = {0};
 
 /* Frame counter stands in for froggykvm's gb300_timer_get_ms() so the
@@ -278,7 +276,6 @@ void sonic_hackerlog_init(const char *rom_path)
     s_boot_start_ms    = hacker_timer_get_ms();
     s_hacker_tick_ms   = 0;
     s_main_class[0]    = '\0';
-    s_overlay_active   = 0;
 
     if (rom_path && *rom_path) {
         snprintf(s_rom_path, sizeof(s_rom_path), "%.40s", rom_path);
@@ -400,67 +397,4 @@ void sonic_hackerlog_exit(int exit_code)
     snprintf(exit_msg, sizeof(exit_msg), "ENGINE HALTED (CODE %d)", exit_code);
     sonic_hackerlog_add("EXIT", exit_msg);
     sonic_hackerlog_add("HALT", "SYS HALTED. SELECT+START");
-}
-
-void sonic_hackerlog_toggle(void)
-{
-    s_overlay_active = !s_overlay_active;
-}
-
-bool sonic_hackerlog_is_overlay_active(void)
-{
-    return s_overlay_active;
-}
-
-/* ========================================================================= */
-/* In-game telemetry overlay (SELECT) - no equivalent in froggykvm, kept      */
-/* on the same drawing primitives and palette as its console.                  */
-/* ========================================================================= */
-
-void sonic_hackerlog_render_overlay(uint16_t *fb, const char *scene_name, const char *category_name, int entities, int fps)
-{
-    if (!fb || !s_overlay_active) return;
-
-    /* Semi-transparent dark terminal overlay on bottom half */
-    int box_x = 8, box_y = 104, box_w = 304, box_h = 128;
-    for (int y = box_y; y < box_y + box_h && y < SCREEN_HEIGHT; y++) {
-        uint16_t *row = fb + y * SCREEN_WIDTH;
-        for (int x = box_x; x < box_x + box_w && x < SCREEN_WIDTH; x++) {
-            uint16_t p = row[x];
-            /* 75% dark tint */
-            row[x] = (p >> 2) & 0x39E7;
-        }
-    }
-
-    /* Border */
-    fill_rect(fb, box_x, box_y, box_w, 1, COLOR_MATRIX_GREEN);
-    fill_rect(fb, box_x, box_y + box_h - 1, box_w, 1, COLOR_MATRIX_GREEN);
-
-    draw_text(fb, box_x + 6, box_y + 4, "[ HACKERLOG TELEMETRY :: GB300/SF2000 ]", COLOR_CYAN, 0);
-
-    char buf[64];
-    snprintf(buf, sizeof(buf), "CORE: MIPS32 @ %dMHz | %dFPS | 320x240 RGB565",
-             200, fps);
-    draw_text(fb, box_x + 6, box_y + 18, buf, COLOR_AMBER, 0);
-
-    snprintf(buf, sizeof(buf), "SCENE: %.24s | CAT: %.16s", scene_name ? scene_name : "-", category_name ? category_name : "-");
-    draw_text(fb, box_x + 6, box_y + 30, buf, COLOR_WHITE, 0);
-
-    snprintf(buf, sizeof(buf), "ENTITIES: %d | AUD: 44.1kHz ST 735S/F", entities);
-    draw_text(fb, box_x + 6, box_y + 42, buf, COLOR_MATRIX_GREEN, 0);
-
-    /* Show recent logs */
-    int show_logs = 4;
-    int start_idx = s_hacker_log_count - show_logs;
-    if (start_idx < 0) start_idx = 0;
-
-    for (int i = start_idx; i < s_hacker_log_count; i++) {
-        int ly = box_y + 56 + (i - start_idx) * 11;
-        draw_text(fb, box_x + 6, ly, s_hacker_logs[i],
-                  (i == s_hacker_log_count - 1) ? COLOR_WHITE : COLOR_MATRIX_GREEN, 0);
-    }
-
-    /* Close hint */
-    fill_rect(fb, box_x + 6, box_y + box_h - 14, box_w - 12, 1, COLOR_SCANLINE);
-    draw_text(fb, box_x + 6, box_y + box_h - 11, "[SEL] CLOSE", COLOR_CYAN, 0);
 }

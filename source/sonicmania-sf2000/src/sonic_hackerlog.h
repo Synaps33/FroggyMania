@@ -28,13 +28,10 @@ void sonic_hackerlog_progress(int pct);
 void sonic_hackerlog_load(const char *msg);
 void sonic_hackerlog_set_main_class(const char *main_class);
 void sonic_hackerlog_render_boot(uint16_t *fb, int frame_step);
-void sonic_hackerlog_render_overlay(uint16_t *fb, const char *scene_name, const char *category_name, int entities, int fps);
 bool sonic_hackerlog_is_boot_active(void);
 bool sonic_hackerlog_boot_complete(void);
 void sonic_hackerlog_dismiss_boot(void);
 void sonic_hackerlog_exit(int exit_code);
-void sonic_hackerlog_toggle(void);
-bool sonic_hackerlog_is_overlay_active(void);
 
 #ifdef __cplusplus
 }
