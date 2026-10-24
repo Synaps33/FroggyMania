@@ -524,10 +524,17 @@ struct dirent *readdir(DIR *dir)
 	if (fs_readdir(fd, &buffer) < 0)
 		return NULL;
 
+	/* FatFS reports the end of a directory as a successful call with an empty
+	 * file name, not as an error. Without this check the caller's
+	 * "while(readdir())" loop never terminates and the core appears hung. */
+	if (buffer.d_name[0] == '\0')
+		return NULL;
+
 	// TODO: not thread safe
 	static struct dirent d;
 
 	d.d_type = S_ISREG(buffer.type)*DTYPE_FILE | S_ISDIR(buffer.type)*DTYPE_DIRECTORY;
-	strncpy(d.d_name, buffer.d_name, sizeof(d.d_name));
+	strncpy(d.d_name, buffer.d_name, sizeof(d.d_name) - 1);
+	d.d_name[sizeof(d.d_name) - 1] = '\0';
 	return &d;
 }

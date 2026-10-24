@@ -65,5 +65,5 @@ KNOWN ISSUES
   60 Hz while rendering may skip frames.
 * Tested on GB300 V2. A plain SF2000 build is not included in this package.
 
-Built from source revision 2026-10-18. See the repository README for build
+Built from source revision 2026-10-24. See the repository README for build
 instructions.

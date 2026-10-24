@@ -108,6 +108,10 @@ static void build_srm_filepath(char *filepath, size_t size, const char *basename
 void save_srm(int slot) {
     char ram_filepath[MAXPATH];
 
+    if (retro_get_memory_size(RETRO_MEMORY_SAVE_RAM) == 0 &&
+        retro_get_memory_size(RETRO_MEMORY_RTC) == 0)
+        return;
+
     char basename[MAXPATH];
 	init_srm_basename();
 	snprintf(basename, sizeof(basename), "%s", srm_basename);
@@ -135,6 +139,13 @@ void save_srm(int slot) {
 
 void load_srm(int slot) {
     char ram_filepath[MAXPATH];
+
+    /* Xash3D exposes no battery-backed memory (both sizes are 0). Building
+     * the save path would create a directory and fs_sync() on the SD card,
+     * which is pointless work on the boot path and a known stall source. */
+    if (retro_get_memory_size(RETRO_MEMORY_SAVE_RAM) == 0 &&
+        retro_get_memory_size(RETRO_MEMORY_RTC) == 0)
+        return;
 
     char basename[MAXPATH];
 	init_srm_basename();

@@ -44,28 +44,28 @@ ifeq ($(DEBUG_XLOG), 1)
 CFLAGS += -DDEBUG_XLOG=1
 endif
 ifeq ($(FROGGY_TYPE), SF2000)
-	BISRVLDSCRIPT := bisrv_08_03.ld
-	CORELDSCRIPT := bisrv_08_03-core.ld
-	CFLAGS += -DSF2000 -DFROGGY_MADCTL=0x60
-	ifeq ($(SCREEN_SWAP), FALSE)
-		BISRVFILE := bisrv_08_03.asd
-	else
-#		GB300 screen
-		BISRVFILE := bisrv_08_03_Screen_Swap.asd
-	endif
+    BISRVLDSCRIPT := bisrv_08_03.ld
+    CORELDSCRIPT := bisrv_08_03-core.ld
+    CFLAGS += -DSF2000 -DFROGGY_MADCTL=0x60
+    ifeq ($(SCREEN_SWAP), FALSE)
+        BISRVFILE := bisrv_08_03.asd
+    else
+#       GB300 screen
+        BISRVFILE := bisrv_08_03_Screen_Swap.asd
+    endif
 else ifeq ($(FROGGY_TYPE),GB300V2)
-	BISRVLDSCRIPT := bisrv_GB300_V2.ld
-	CORELDSCRIPT := bisrv_GB300_V2-core.ld
-	CFLAGS += -DGB300V2 -DFROGGY_MADCTL=0x28
-	ifeq ($(SCREEN_SWAP), FALSE)
-#		GB300 screen
-		BISRVFILE := bisrv_GB300_V2.asd
-	else
-#		SF2000 screen
-		BISRVFILE := bisrv_GB300_V2_Screen_Swap.asd
-	endif
+    BISRVLDSCRIPT := bisrv_GB300_V2.ld
+    CORELDSCRIPT := bisrv_GB300_V2-core.ld
+    CFLAGS += -DGB300V2 -DFROGGY_MADCTL=0x28
+    ifeq ($(SCREEN_SWAP), FALSE)
+#       GB300 screen
+        BISRVFILE := bisrv_GB300_V2.asd
+    else
+#       SF2000 screen
+        BISRVFILE := bisrv_GB300_V2_Screen_Swap.asd
+    endif
 else
-	$(error Unsupported FROGGY_TYPE: $(FROGGY_TYPE))
+    $(error Unsupported FROGGY_TYPE: $(FROGGY_TYPE))
 endif
 #ifneq ($(filter DBLCherryGB TGB Dual,$(CONSOLE)),)
 #    CFLAGS += -DDUAL_SAVE
